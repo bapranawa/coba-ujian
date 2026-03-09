@@ -13,6 +13,7 @@
         .exam-layout { display: none; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
         .question-area { background: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px; min-height: 450px; }
         
+        /* Navigasi Melayang */
         .nav-panel { 
             background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; 
             position: sticky; top: 20px; max-height: 90vh; overflow-y: auto; 
@@ -36,7 +37,7 @@
         .btn-toggle { background: #607d8b; width: 100%; margin-bottom: 10px; display: none; }
         .btn-reset { background: #f0f0f0; color: #d93025; width: 100%; margin-top: 20px; font-size: 11px; border: 1px solid #ddd; }
         
-        /* Gaya Baru: Modal Kustom (Tanpa URL) */
+        /* Modal Kustom (Tanpa URL) */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
         .modal-box { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
         .modal-btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
@@ -59,16 +60,22 @@
 
 <div class="container">
     <div id="login-sec">
-        <div class="header-info"><h2>SD NEGERI KARANGREJEK I</h2><h3>UJIAN DIGITAL</h3></div>
+        <div class="header-info"><h2>UJIAN DIGITAL</h2><h3>INPUT IDENTITAS</h3></div>
+        
         <label>Pilih Sekolah:</label>
-    <select id="stuSekolah">
-        <option value="SDN KARANGREJEK I">SDN KARANGREJEK I</option>
-        <option value="SDN LAIN">SDN LAIN</option>
-    </select>
+        <select id="stuSekolah">
+            <option value="SDN KARANGREJEK I">SDN KARANGREJEK I</option>
+            <option value="SDN LAIN">SDN LAIN</option>
+        </select>
+
         <label>Nama Lengkap:</label><input type="text" id="stuName">
         <label>Nomor Absen:</label><input type="number" id="stuNo">
         <label>Mata Pelajaran:</label>
-        <select id="stuMapel"><option value="BAHASA INDONESIA">BAHASA INDONESIA</option><option value="IPAS">IPAS</option><option value="MATEMATIKA">MATEMATIKA</option></select>
+        <select id="stuMapel">
+            <option value="BAHASA INDONESIA">BAHASA INDONESIA</option>
+            <option value="IPAS">IPAS</option>
+            <option value="MATEMATIKA">MATEMATIKA</option>
+        </select>
         <button class="btn btn-blue" style="width:100%" onclick="mulai()">MULAI UJIAN</button>
         <p id="resume-hint" style="display:none; color:green; text-align:center; font-size:12px; margin-top:10px;"><i>Draf ditemukan. Melanjutkan sesi sebelumnya...</i></p>
     </div>
@@ -179,7 +186,7 @@ Semua lampu padam
 Semua lampu menyala
     `;
 
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbwQRVutzYDO6GUIpm3XvW5fnc7zM9TorX2i8WwqkOY50h7kiX_9VqvjeVFaG8mM7WDXww/exec';
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbyunY83YDuwB19jimaxGJK-GK2YyozaaOGFVxqxGgT9bH1RiTuDN3DT7YIS7GOc-2kAPg/exec';
     let quizData = [], answers = [], doubtStatus = [], current = 0, timer, totalSec = 75 * 60;
     let isGracePeriod = false;
 
@@ -199,6 +206,7 @@ Semua lampu menyala
             document.getElementById('resume-hint').style.display = 'block';
             document.getElementById('stuName').value = localStorage.getItem('wonosari_name');
             document.getElementById('stuNo').value = localStorage.getItem('wonosari_no');
+            document.getElementById('stuSekolah').value = localStorage.getItem('wonosari_sekolah') || "SDN KARANGREJEK I";
             answers = JSON.parse(localStorage.getItem('wonosari_ans')) || new Array(quizData.length).fill(null);
             doubtStatus = JSON.parse(localStorage.getItem('wonosari_doubt')) || new Array(quizData.length).fill(false);
             totalSec = parseInt(localStorage.getItem('wonosari_time')) || (75 * 60);
@@ -208,7 +216,6 @@ Semua lampu menyala
         }
     };
 
-    // Fungsi Pengganti Alert Browser (Tanpa URL)
     function showModal(title, msg, onOk = null, showCancel = false) {
         document.getElementById('modalTitle').innerText = title;
         document.getElementById('modalMsg').innerText = msg;
@@ -217,33 +224,33 @@ Semua lampu menyala
         
         if(showCancel) {
             let btnBatal = document.createElement("button");
-            btnBatal.className = "btn";
-            btnBatal.style.background = "#ccc";
-            btnBatal.innerText = "Batal";
-            btnBatal.onclick = closeModal;
-            footer.appendChild(btnBatal);
+            btnBatal.className = "btn"; btnBatal.style.background = "#ccc"; btnBatal.innerText = "Batal";
+            btnBatal.onclick = closeModal; footer.appendChild(btnBatal);
         }
 
         let btnOk = document.createElement("button");
-        btnOk.className = "btn btn-blue";
-        btnOk.innerText = "Oke";
+        btnOk.className = "btn btn-blue"; btnOk.innerText = "Oke";
         btnOk.onclick = () => { closeModal(); if(onOk) onOk(); };
         footer.appendChild(btnOk);
-
         document.getElementById('customModal').style.display = 'flex';
     }
 
     function closeModal() { document.getElementById('customModal').style.display = 'none'; }
 
     function mulai() {
+        const s = document.getElementById('stuSekolah').value;
         const n = document.getElementById('stuName').value;
         const a = document.getElementById('stuNo').value;
         if(!n || !a) return showModal("Peringatan", "Isi Nama dan Absen!");
+        
         document.getElementById('login-sec').style.display = 'none';
         document.getElementById('exam-sec').style.display = 'grid';
+        
+        localStorage.setItem('wonosari_sekolah', s);
         localStorage.setItem('wonosari_name', n);
         localStorage.setItem('wonosari_no', a);
         localStorage.setItem('wonosari_mapel', document.getElementById('stuMapel').value);
+        
         tampil();
         timer = setInterval(updateTimer, 1000);
     }
@@ -260,12 +267,12 @@ Semua lampu menyala
             if (!isGracePeriod) {
                 isGracePeriod = true;
                 totalSec = 5 * 60; 
-                showModal("Waktu Habis", "Waktu habis! Kamu diberikan 5 menit tambahan untuk memeriksa dan mengirim jawaban.");
+                showModal("Waktu Habis", "Waktu habis! Kamu diberikan 5 menit tambahan untuk memeriksa jawaban.");
             }
             document.getElementById('timer').innerText = "TAMBAHAN: " + display;
             if (totalSec <= 0) {
                 clearInterval(timer);
-                showModal("Waktu Selesai", "Waktu tambahan habis. Jawaban akan dikirim otomatis.", () => selesai(true));
+                showModal("Waktu Selesai", "Waktu tambahan habis. Jawaban dikirim otomatis.", () => selesai(true));
             }
         }
     }
@@ -308,9 +315,9 @@ Semua lampu menyala
         let kosong = [];
         answers.forEach((ans, idx) => { if (!ans) kosong.push(idx + 1); });
         if (kosong.length > 0) {
-            showModal("Belum Lengkap", "Maaf! Jawaban belum lengkap.\nNomor yang belum diisi: " + kosong.join(", ") + "\n\nCek kembali agar semua terisi.");
+            showModal("Belum Lengkap", "Nomor belum diisi: " + kosong.join(", ") + "\nCek kembali agar semua terisi.");
         } else {
-            showModal("Konfirmasi", "Apakah kamu yakin ingin mengirim jawaban sekarang?", () => selesai(), true);
+            showModal("Konfirmasi", "Yakin ingin mengirim jawaban sekarang?", () => selesai(), true);
         }
     }
 
@@ -325,20 +332,19 @@ Semua lampu menyala
     }
 
     function resetSemuaDraf() {
-        showModal("Konfirmasi Hapus", "Yakin hapus SEMUA draf jawaban? Hubungi Guru jika ragu.", () => {
-            localStorage.clear();
-            location.reload();
-        }, true);
+        showModal("Konfirmasi", "Hapus SEMUA draf jawaban?", () => { localStorage.clear(); location.reload(); }, true);
     }
 
     function selesai(force = false) {
         clearInterval(timer);
+        const sekolah = localStorage.getItem('wonosari_sekolah');
         const nama = localStorage.getItem('wonosari_name');
         const absen = localStorage.getItem('wonosari_no');
         const mapel = localStorage.getItem('wonosari_mapel');
+        
         document.getElementById('exam-sec').style.display = 'none';
         document.getElementById('result-sec').style.display = 'block';
-        document.getElementById('info-pribadi').innerText = `${nama} | Absen: ${absen} | Mapel: ${mapel}`;
+        document.getElementById('info-pribadi').innerText = `${sekolah} | ${nama} | Absen: ${absen}`;
         
         let benar = 0, rincian = [];
         quizData.forEach((q, i) => {
@@ -351,7 +357,12 @@ Semua lampu menyala
         fetch(scriptURL, {
             method: 'POST', mode: 'no-cors',
             body: JSON.stringify({
-                nama: nama, absen: absen, mapel: mapel, nilai: skor, analisis: rincian.join(" | ")
+                sekolah: sekolah,
+                nama: nama,
+                absen: absen,
+                mapel: mapel,
+                nilai: skor,
+                analisis: rincian.join(" | ")
             })
         }).then(() => {
             document.getElementById('stat-kirim').innerHTML = "✅ DATA BERHASIL TERKIRIM";
@@ -361,4 +372,3 @@ Semua lampu menyala
 </script>
 </body>
 </html>
-
