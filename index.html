@@ -10,7 +10,6 @@
         .container { width: 100%; max-width: 950px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .header-info { text-align: center; border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; }
         
-        /* Layout dengan Navigasi Melayang */
         .exam-layout { display: none; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
         .question-area { background: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px; min-height: 450px; }
         
@@ -37,11 +36,26 @@
         .btn-toggle { background: #607d8b; width: 100%; margin-bottom: 10px; display: none; }
         .btn-reset { background: #f0f0f0; color: #d93025; width: 100%; margin-top: 20px; font-size: 11px; border: 1px solid #ddd; }
         
+        /* Gaya Baru: Modal Kustom (Tanpa URL) */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
+        .modal-btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+
         input, select { width: 100%; padding: 12px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
         @media (max-width: 768px) { .exam-layout { grid-template-columns: 1fr; } .nav-panel { position: relative; top: 0; display: none; } .btn-toggle { display: block; } }
     </style>
 </head>
 <body>
+
+<div id="customModal" class="modal-overlay">
+    <div class="modal-box">
+        <h3 id="modalTitle" style="margin-top:0; color:var(--primary);">Pemberitahuan</h3>
+        <p id="modalMsg" style="font-size: 16px; line-height: 1.5;"></p>
+        <div id="modalFooter" class="modal-btn-group">
+            <button class="btn btn-blue" onclick="closeModal()">Oke</button>
+        </div>
+    </div>
+</div>
 
 <div class="container">
     <div id="login-sec">
@@ -189,10 +203,37 @@ Semua lampu menyala
         }
     };
 
+    // Fungsi Pengganti Alert Browser (Tanpa URL)
+    function showModal(title, msg, onOk = null, showCancel = false) {
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('modalMsg').innerText = msg;
+        const footer = document.getElementById('modalFooter');
+        footer.innerHTML = "";
+        
+        if(showCancel) {
+            let btnBatal = document.createElement("button");
+            btnBatal.className = "btn";
+            btnBatal.style.background = "#ccc";
+            btnBatal.innerText = "Batal";
+            btnBatal.onclick = closeModal;
+            footer.appendChild(btnBatal);
+        }
+
+        let btnOk = document.createElement("button");
+        btnOk.className = "btn btn-blue";
+        btnOk.innerText = "Oke";
+        btnOk.onclick = () => { closeModal(); if(onOk) onOk(); };
+        footer.appendChild(btnOk);
+
+        document.getElementById('customModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('customModal').style.display = 'none'; }
+
     function mulai() {
         const n = document.getElementById('stuName').value;
         const a = document.getElementById('stuNo').value;
-        if(!n || !a) return alert("Isi Nama dan Absen!");
+        if(!n || !a) return showModal("Peringatan", "Isi Nama dan Absen!");
         document.getElementById('login-sec').style.display = 'none';
         document.getElementById('exam-sec').style.display = 'grid';
         localStorage.setItem('wonosari_name', n);
@@ -202,7 +243,6 @@ Semua lampu menyala
         timer = setInterval(updateTimer, 1000);
     }
 
-    // FUNGSI TIMER DENGAN GRACE PERIOD 5 MENIT
     function updateTimer() {
         totalSec--;
         localStorage.setItem('wonosari_time', totalSec);
@@ -215,13 +255,12 @@ Semua lampu menyala
             if (!isGracePeriod) {
                 isGracePeriod = true;
                 totalSec = 5 * 60; 
-                alert("WAKTU HABIS! Kamu diberikan 5 menit tambahan untuk memeriksa dan mengirim jawaban.");
+                showModal("Waktu Habis", "Waktu habis! Kamu diberikan 5 menit tambahan untuk memeriksa dan mengirim jawaban.");
             }
             document.getElementById('timer').innerText = "TAMBAHAN: " + display;
             if (totalSec <= 0) {
                 clearInterval(timer);
-                alert("Waktu tambahan habis. Jawaban akan dikirim otomatis.");
-                selesai(true); // Kirim paksa
+                showModal("Waktu Selesai", "Waktu tambahan habis. Jawaban akan dikirim otomatis.", () => selesai(true));
             }
         }
     }
@@ -260,14 +299,13 @@ Semua lampu menyala
         document.getElementById('num-grid').innerHTML = html;
     }
 
-    // FUNGSI CEK VALIDASI JAWABAN KOSONG
     function cekSebelumSelesai() {
         let kosong = [];
         answers.forEach((ans, idx) => { if (!ans) kosong.push(idx + 1); });
         if (kosong.length > 0) {
-            alert("MAAF! Jawaban belum lengkap.\nNomor yang belum diisi: " + kosong.join(", ") + "\n\nSilakan cek kembali agar semua terisi.");
+            showModal("Belum Lengkap", "Maaf! Jawaban belum lengkap.\nNomor yang belum diisi: " + kosong.join(", ") + "\n\nCek kembali agar semua terisi.");
         } else {
-            selesai();
+            showModal("Konfirmasi", "Apakah kamu yakin ingin mengirim jawaban sekarang?", () => selesai(), true);
         }
     }
 
@@ -282,14 +320,13 @@ Semua lampu menyala
     }
 
     function resetSemuaDraf() {
-        if(confirm("Apakah Kamu yakin ingin menghapus SEMUA jawaban? Hubungi Guru atau Pengawas.")){
+        showModal("Konfirmasi Hapus", "Yakin hapus SEMUA draf jawaban? Hubungi Guru jika ragu.", () => {
             localStorage.clear();
             location.reload();
-        }
+        }, true);
     }
 
     function selesai(force = false) {
-        if(!force && !confirm("Kirim jawaban sekarang?")) return;
         clearInterval(timer);
         const nama = localStorage.getItem('wonosari_name');
         const absen = localStorage.getItem('wonosari_no');
