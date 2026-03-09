@@ -10,22 +10,13 @@
         .container { width: 100%; max-width: 950px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .header-info { text-align: center; border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; }
         
-        /* Layout Utama */
+        /* Layout dengan Navigasi Melayang */
         .exam-layout { display: none; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
-        
         .question-area { background: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px; min-height: 450px; }
         
-        /* Navigasi Melayang (Sticky) */
         .nav-panel { 
-            background: #f8f9fa; 
-            border: 1px solid #ddd; 
-            padding: 15px; 
-            border-radius: 8px; 
-            position: -webkit-sticky; /* Dukungan Safari */
-            position: sticky; 
-            top: 20px; /* Jarak dari atas layar saat melayang */
-            max-height: 90vh;
-            overflow-y: auto;
+            background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; 
+            position: sticky; top: 20px; max-height: 90vh; overflow-y: auto; 
         }
 
         .num-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
@@ -47,12 +38,7 @@
         .btn-reset { background: #f0f0f0; color: #d93025; width: 100%; margin-top: 20px; font-size: 11px; border: 1px solid #ddd; }
         
         input, select { width: 100%; padding: 12px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        
-        @media (max-width: 768px) { 
-            .exam-layout { grid-template-columns: 1fr; } 
-            .nav-panel { position: relative; top: 0; display: none; } 
-            .btn-toggle { display: block; } 
-        }
+        @media (max-width: 768px) { .exam-layout { grid-template-columns: 1fr; } .nav-panel { position: relative; top: 0; display: none; } .btn-toggle { display: block; } }
     </style>
 </head>
 <body>
@@ -63,18 +49,14 @@
         <label>Nama Lengkap:</label><input type="text" id="stuName">
         <label>Nomor Absen:</label><input type="number" id="stuNo">
         <label>Mata Pelajaran:</label>
-        <select id="stuMapel">
-            <option value="BAHASA INDONESIA">BAHASA INDONESIA</option>
-            <option value="IPAS">IPAS</option>
-            <option value="MATEMATIKA">MATEMATIKA</option>
-        </select>
+        <select id="stuMapel"><option value="BAHASA INDONESIA">BAHASA INDONESIA</option><option value="IPAS">IPAS</option><option value="MATEMATIKA">MATEMATIKA</option></select>
         <button class="btn btn-blue" style="width:100%" onclick="mulai()">MULAI UJIAN</button>
         <p id="resume-hint" style="display:none; color:green; text-align:center; font-size:12px; margin-top:10px;"><i>Draf ditemukan. Melanjutkan sesi sebelumnya...</i></p>
     </div>
 
     <div id="exam-sec" class="exam-layout">
         <div class="question-area">
-            <button class="btn btn-toggle" onclick="toggleNav()">Tampilkan/Sembunyikan Daftar Nomor</button>
+            <button class="btn btn-toggle" onclick="toggleNav()">Daftar Nomor</button>
             <div style="display:flex; justify-content:space-between; margin-bottom:15px">
                 <b id="q-num" style="color:var(--primary); font-size:1.1em;">Soal No. 1</b>
                 <b id="timer" style="color:var(--danger)">00:00</b>
@@ -87,11 +69,10 @@
                 <button class="btn btn-blue" onclick="nav(1)">Lanjut</button>
             </div>
         </div>
-        
         <div class="nav-panel" id="nav-panel">
             <h4 style="margin:0">Navigasi Nomor</h4>
             <div id="num-grid" class="num-grid"></div>
-            <button id="finish-btn" class="btn btn-red" onclick="cekSebelumSelesai()">SELESAI & KIRIM</button>
+            <button class="btn btn-red" onclick="cekSebelumSelesai()">SELESAI & KIRIM</button>
             <button class="btn btn-reset" onclick="resetSemuaDraf()">HAPUS SEMUA DRAF JAWABAN</button>
         </div>
     </div>
@@ -212,22 +193,19 @@ Semua lampu menyala
         const n = document.getElementById('stuName').value;
         const a = document.getElementById('stuNo').value;
         if(!n || !a) return alert("Isi Nama dan Absen!");
-        
         document.getElementById('login-sec').style.display = 'none';
         document.getElementById('exam-sec').style.display = 'grid';
-        
         localStorage.setItem('wonosari_name', n);
         localStorage.setItem('wonosari_no', a);
         localStorage.setItem('wonosari_mapel', document.getElementById('stuMapel').value);
-        
         tampil();
         timer = setInterval(updateTimer, 1000);
     }
 
+    // FUNGSI TIMER DENGAN GRACE PERIOD 5 MENIT
     function updateTimer() {
         totalSec--;
         localStorage.setItem('wonosari_time', totalSec);
-        
         let m = Math.floor(Math.abs(totalSec)/60), s = Math.abs(totalSec)%60;
         let display = `${m}:${s<10?'0'+s:s}`;
         
@@ -243,7 +221,7 @@ Semua lampu menyala
             if (totalSec <= 0) {
                 clearInterval(timer);
                 alert("Waktu tambahan habis. Jawaban akan dikirim otomatis.");
-                selesai();
+                selesai(true); // Kirim paksa
             }
         }
     }
@@ -282,14 +260,12 @@ Semua lampu menyala
         document.getElementById('num-grid').innerHTML = html;
     }
 
+    // FUNGSI CEK VALIDASI JAWABAN KOSONG
     function cekSebelumSelesai() {
         let kosong = [];
-        answers.forEach((ans, idx) => {
-            if (!ans) kosong.push(idx + 1);
-        });
-
+        answers.forEach((ans, idx) => { if (!ans) kosong.push(idx + 1); });
         if (kosong.length > 0) {
-            alert("MAAF! Jawaban belum lengkap.\nNomor yang belum diisi: " + kosong.join(", ") + "\n\nSilakan cek kembali jawabanmu agar semua terisi.");
+            alert("MAAF! Jawaban belum lengkap.\nNomor yang belum diisi: " + kosong.join(", ") + "\n\nSilakan cek kembali agar semua terisi.");
         } else {
             selesai();
         }
@@ -312,14 +288,12 @@ Semua lampu menyala
         }
     }
 
-    function selesai() {
-        if(!confirm("Kirim jawaban sekarang?")) return;
+    function selesai(force = false) {
+        if(!force && !confirm("Kirim jawaban sekarang?")) return;
         clearInterval(timer);
-        
         const nama = localStorage.getItem('wonosari_name');
         const absen = localStorage.getItem('wonosari_no');
         const mapel = localStorage.getItem('wonosari_mapel');
-        
         document.getElementById('exam-sec').style.display = 'none';
         document.getElementById('result-sec').style.display = 'block';
         document.getElementById('info-pribadi').innerText = `${nama} | Absen: ${absen} | Mapel: ${mapel}`;
@@ -333,14 +307,9 @@ Semua lampu menyala
         document.getElementById('skor-akhir').innerText = skor;
         
         fetch(scriptURL, {
-            method: 'POST',
-            mode: 'no-cors',
+            method: 'POST', mode: 'no-cors',
             body: JSON.stringify({
-                nama: nama,
-                absen: absen,
-                mapel: mapel,
-                nilai: skor,
-                analisis: rincian.join(" | ")
+                nama: nama, absen: absen, mapel: mapel, nilai: skor, analisis: rincian.join(" | ")
             })
         }).then(() => {
             document.getElementById('stat-kirim').innerHTML = "✅ DATA BERHASIL TERKIRIM";
