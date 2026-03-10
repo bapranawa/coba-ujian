@@ -207,4 +207,167 @@ Semua besar susut salah
     let quizData = [], answers = [], doubtStatus = [], current = 0, timer, totalSec = 75 * 60;
 
     // Parsing sederhana
-    databaseSoal.trim().split(/\n\s*\n/).
+    databaseSoal.trim().split(/\n\s*\n/).forEach(block => {
+        let lines = block.split('\n').map(l => l.trim()).filter(l => l !== "");
+        let q = lines[0], opts = [], keys = [];
+        for(let i=1; i<lines.length; i++) {
+            if(q.includes("[TABEL]")) {
+                let parts = lines[i].split("|").map(p => p.trim());
+                let subQ = parts[0], subOpts = parts.slice(1).map(o => o.replace('*','').trim());
+                let subKey = parts.slice(1).find(o => o.includes('*')).replace('*','').trim();
+                opts.push({subQ, subOpts}); keys.push(subKey);
+            } else {
+                let txt = lines[i].replace('*','').trim();
+                if(lines[i].includes('*')) keys.push(txt);
+                opts.push(txt);
+            }
+        }
+        quizData.push({q, opts, keys});
+    });
+
+    function toggleSidebar() {
+        const side = document.getElementById('sidebar');
+        side.classList.toggle('open');
+        document.getElementById('toggleNavBtn').innerHTML = side.classList.contains('open') ? "✕ Tutup" : "☰ Daftar Nomor Soal";
+    }
+
+    function showModal(title, msg, onOk = null, showCancel = false) {
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('modalMsg').innerText = msg;
+        const footer = document.getElementById('modalFooter');
+        footer.innerHTML = "";
+        if(showCancel) {
+            let b = document.createElement("button"); b.className="btn"; b.style.background="#ccc"; b.innerText="Batal"; b.onclick=closeModal; footer.appendChild(b);
+        }
+        let o = document.createElement("button"); o.className="btn btn-blue"; o.innerText="Oke"; o.onclick=()=>{closeModal(); if(onOk) onOk();}; footer.appendChild(o);
+        document.getElementById('customModal').style.display='flex';
+    }
+
+    function closeModal() { document.getElementById('customModal').style.display='none'; }
+
+    function mulai() {
+        if(!document.getElementById('stuName').value || !document.getElementById('stuNo').value) return showModal("Peringatan", "Isi Nama dan Absen!");
+        
+        localStorage.setItem('sch', document.getElementById('stuSekolah').value);
+        localStorage.setItem('nam', document.getElementById('stuName').value);
+        localStorage.setItem('abs', document.getElementById('stuNo').value);
+        localStorage.setItem('map', document.getElementById('stuMapel').value);
+        
+        answers = JSON.parse(localStorage.getItem('ans')) || new Array(quizData.length).fill(null);
+        doubtStatus = JSON.parse(localStorage.getItem('dbt')) || new Array(quizData.length).fill(false);
+        
+        document.getElementById('login-sec').style.display='none';
+        document.getElementById('exam-sec').style.display='grid';
+        
+        if(window.innerWidth <= 768) {
+            document.getElementById('toggleNavBtn').style.display='block';
+            document.getElementById('mainContainer').classList.add('exam-active-padding');
+        }
+        
+        tampil();
+        timer = setInterval(() => {
+            totalSec--;
+            let m = Math.floor(totalSec/60), s = totalSec%60;
+            document.getElementById('timer').innerText = `${m}:${s<10?'0'+s:s}`;
+            if(totalSec<=0) selesai();
+        }, 1000);
+    }
+
+    function tampil() {
+        let d = quizData[current], isMCMA = d.q.includes("[MCMA]"), isTABEL = d.q.includes("[TABEL]");
+        document.getElementById('q-num').innerText = "Soal No. " + (current + 1);
+        document.getElementById('q-text').innerHTML = d.q.replace("[TABEL]","").replace("[MCMA]","").replace(/\[IMG:\s*(.*?)\]/g, '<img src="$1" class="q-img">');
+        
+        let h = "";
+        if(isTABEL) {
+            h += `<div class="table-container"><table class="soal-tabel"><tr><th>Pernyataan</th><th>${d.opts[0].subOpts[0]}</th><th>${d.opts[0].subOpts[1]}</th></tr>`;
+            d.opts.forEach((o, r) => {
+                h += `<tr><td>${o.subQ}</td>`;
+                o.subOpts.forEach(opt => {
+                    let s = (Array.isArray(answers[current]) && answers[current][r] === opt);
+                    h += `<td class="cell-opt ${s?'selected':''}" onclick="pilihTabel(${r},'${opt}')">${opt}</td>`;
+                });
+                h += `</tr>`;
+            });
+            h += `</table></div>`;
+        } else {
+            d.opts.forEach(o => {
+                let s = isMCMA ? (Array.isArray(answers[current]) && answers[current].includes(o)) : (answers[current] === o);
+                h += `<div class="option ${s?'selected':''}" onclick="pilih('${o}',${isMCMA})"><div class="${isMCMA?'opt-box':'opt-circle'}"></div><span>${o}</span></div>`;
+            });
+        }
+        document.getElementById('opt-area').innerHTML = h;
+        renderNav();
+        window.scrollTo(0,0);
+        if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+    }
+
+    function pilih(v, m) {
+        if(m) {
+            if(!Array.isArray(answers[current])) answers[current] = [];
+            let i = answers[current].indexOf(v);
+            if(i>-1) answers[current].splice(i,1); else answers[current].push(v);
+            if(answers[current].length===0) answers[current]=null;
+        } else answers[current] = v;
+        localStorage.setItem('ans', JSON.stringify(answers));
+        tampil();
+    }
+
+    function pilihTabel(r, v) {
+        if(!Array.isArray(answers[current])) answers[current] = new Array(quizData[current].opts.length).fill(null);
+        answers[current][r] = v;
+        localStorage.setItem('ans', JSON.stringify(answers));
+        tampil();
+    }
+
+    function toggleDoubt() { doubtStatus[current]=!doubtStatus[current]; localStorage.setItem('dbt',JSON.stringify(doubtStatus)); renderNav(); }
+
+    function renderNav() {
+        let h = "";
+        quizData.forEach((q, i) => {
+            let a = answers[i], l = q.q.includes("[MCMA]") ? (Array.isArray(a)&&a.length>0) : (q.q.includes("[TABEL]") ? (Array.isArray(a)&&a.length===q.opts.length&&a.every(x=>x!==null)) : !!a);
+            h += `<div class="num-btn ${i===current?'active':''} ${doubtStatus[i]?'doubt':(l?'filled':'')}" onclick="current=${i};tampil()">${i+1}</div>`;
+        });
+        document.getElementById('num-grid').innerHTML = h;
+    }
+
+    function nav(v) { let t=current+v; if(t>=0 && t<quizData.length){current=t; tampil();} }
+
+    function cekSebelumSelesai() {
+        showModal("Konfirmasi", "Kirim jawaban sekarang?", () => selesai(), true);
+    }
+
+    function selesai() {
+        clearInterval(timer);
+        document.getElementById('toggleNavBtn').style.display='none';
+        document.getElementById('exam-sec').style.display='none';
+        document.getElementById('result-sec').style.display='block';
+        
+        let b = 0, rin = [];
+        quizData.forEach((q, i) => {
+            let c = false;
+            if(q.q.includes("[TABEL]")) c = JSON.stringify(answers[i])===JSON.stringify(q.keys);
+            else if(q.q.includes("[MCMA]")) c = (answers[i]||[]).sort().join("|")===q.keys.sort().join("|");
+            else c = answers[i]===q.keys[0];
+            if(c) b++;
+            rin.push(`No${i+1}:${Array.isArray(answers[i])?answers[i].join("/"):answers[i]||'-'}`);
+        });
+        
+        let s = Math.round((b/quizData.length)*100);
+        document.getElementById('skor-akhir').innerText = s;
+        document.getElementById('info-pribadi').innerText = `${localStorage.getItem('nam')} | Absen: ${localStorage.getItem('abs')}\n${localStorage.getItem('map')}`;
+        
+        const f = new URLSearchParams();
+        f.append('sekolah', localStorage.getItem('sch')); f.append('nama', localStorage.getItem('nam'));
+        f.append('absen', localStorage.getItem('abs')); f.append('mapel', localStorage.getItem('map'));
+        f.append('nilai', s); f.append('analisis', rin.join(" | "));
+
+        fetch(scriptURL, { method: 'POST', body: f, mode: 'no-cors' })
+        .then(() => { document.getElementById('stat-kirim').innerHTML="✅ TERKIRIM"; localStorage.clear(); })
+        .catch(() => { document.getElementById('stat-kirim').innerHTML="❌ GAGAL KIRIM"; });
+    }
+
+    function resetSemuaDraf() { if(confirm("Hapus draf?")) { localStorage.clear(); location.reload(); } }
+</script>
+</body>
+</html>
