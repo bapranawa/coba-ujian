@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Professional Exam Editor - SDN Karangrejek I</title>
+    <style>
+        :root { --primary: #1a73e8; --secondary: #34a853; --danger: #d93025; --bg: #f1f3f4; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+        
+        header { background: var(--primary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; height: 50px; box-sizing: border-box; }
+        
+        .main-layout { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 50px); margin-bottom: 145px; }
+        .column { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #ccc; background: white; min-width: 0; }
+        .column-header { background: #eee; padding: 8px 15px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #ccc; color: #444; }
+        
+        textarea { flex: 1; padding: 15px; font-family: 'Consolas', monospace; font-size: 14px; border: none; resize: none; outline: none; line-height: 1.6; }
+        #preview-container { flex: 1; padding: 20px; overflow-y: auto; background: white; }
+
+        .nav-panel { 
+            position: fixed; bottom: 0; left: 0; right: 0; 
+            background: white; border-top: 3px solid #ddd; 
+            z-index: 200; padding: 10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+        }
+
+        .nav-scroll { display: flex; gap: 6px; overflow-x: auto; padding: 5px 0; align-items: center; }
+        .num-btn { min-width: 42px; height: 42px; border: 1px solid #bbb; background: #fff; cursor: pointer; border-radius: 6px; font-weight: bold; flex-shrink: 0; }
+        .num-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .num-btn.filled { border: 2px solid var(--primary); color: var(--primary); background: #e8f0fe; }
+
+        .ctrl-btn { min-width: 42px; height: 42px; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 6px; margin: 0 2px; }
+        .btn-add { background: var(--secondary); font-size: 20px; }
+        .btn-del { background: var(--danger); font-size: 20px; }
+
+        .action-group { display: flex; gap: 8px; margin-top: 10px; justify-content: center; flex-wrap: wrap; }
+        .btn-action { padding: 10px 15px; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; font-size: 11px; }
+
+        /* PREVIEW STYLING */
+        .q-text { font-size: 16px; line-height: 1.6; white-space: pre-wrap; margin-bottom: 15px; }
+        .simple-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+        .simple-table td { border: 1px solid #aaa; padding: 8px; text-align: center; }
+        .ans-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .ans-table th, .ans-table td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        .cell-opt { border: 1px solid #ccc; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+        .cell-opt.selected { background: var(--secondary); color: white; }
+        .q-img { max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0; border: 1px solid #ddd; }
+        .opt-row { display: flex; align-items: center; padding: 10px; border: 1px solid #eee; margin-bottom: 6px; border-radius: 8px; font-size: 14px; }
+        .dot { width: 16px; height: 16px; border: 2px solid var(--primary); border-radius: 50%; margin-right: 12px; flex-shrink: 0; }
+        .sq { width: 16px; height: 16px; border: 2px solid var(--primary); margin-right: 12px; flex-shrink: 0; }
+        .frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: 0.8em; line-height: 1; }
+        .frac .top { border-bottom: 1px solid black; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="font-weight: bold;">EXAM EDITOR PRO - SDN KARANGREJEK I</div>
+    <div id="no-display" style="background:rgba(255,255,255,0.2); padding:3px 12px; border-radius:15px; font-size:13px;">Nomor 1</div>
+</header>
+
+<div class="main-layout">
+    <div class="column">
+        <div class="column-header">HTML EDITOR</div>
+        <textarea id="editor" oninput="liveUpdate()" placeholder="Ketik soal di sini... ### Opsi"></textarea>
+    </div>
+    <div class="column">
+        <div class="column-header">LIVE PREVIEW</div>
+        <div id="preview-container">
+            <div id="p-main"></div>
+            <div id="p-options"></div>
+        </div>
+    </div>
+</div>
+
+<div class="nav-panel">
+    <div class="nav-scroll" id="nav-scroll"></div>
+    <div class="action-group">
+        <button class="btn-action" style="background:#673ab7" onclick="doImport()">📥 IMPOR SOAL</button>
+        <button class="btn-action" style="background:var(--secondary)" onclick="doDownload()">💾 UNDUH .TXT</button>
+        <button class="btn-action" style="background:#ff9800" onclick="copyAllText()">📋 SALIN SEMUA SOAL</button>
+        <button class="btn-action" style="background:#666" onclick="doReset()">🗑️ RESET</button>
+    </div>
+</div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('db_exam_v4')) || [""];
+    let current = 0;
+
+    function init() { renderNav(); loadSoal(); }
+
+    function renderNav() {
+        const container = document.getElementById('nav-scroll');
+        container.innerHTML = "";
+        let btnDel = document.createElement('button');
+        btnDel.className = "ctrl-btn btn-del"; btnDel.innerText = "-"; btnDel.onclick = deleteLast;
+        container.appendChild(btnDel);
+        db.forEach((content, i) => {
+            let btn = document.createElement('button');
+            let isFilled = content && content.trim() !== "";
+            btn.className = `num-btn ${i === current ? 'active' : ''} ${isFilled ? 'filled' : ''}`;
+            btn.innerText = i + 1;
+            btn.onclick = () => goTo(i);
+            container.appendChild(btn);
+        });
+        let btnAdd = document.createElement('button');
+        btnAdd.className = "ctrl-btn btn-add"; btnAdd.innerText = "+"; btnAdd.onclick = addNew;
+        container.appendChild(btnAdd);
+        const active = container.children[current + 1];
+        if(active) active.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+    }
+
+    function goTo(idx) { save(); current = idx; loadSoal(); renderNav(); }
+    function addNew() { if(db.length >= 50) return alert("Maksimal 50 soal."); save(); db.push(""); current = db.length - 1; loadSoal(); renderNav(); }
+    function deleteLast() { if(db.length <= 1) return; if(confirm("Hapus nomor terakhir?")){ db.pop(); if(current >= db.length) current = db.length - 1; save(); loadSoal(); renderNav(); } }
+
+    function save() { 
+        let txt = document.getElementById('editor').value;
+        db[current] = txt; 
+        localStorage.setItem('db_exam_v4', JSON.stringify(db)); 
+    }
+
+    function loadSoal() { 
+        document.getElementById('editor').value = db[current] || ""; 
+        document.getElementById('no-display').innerText = "Nomor " + (current + 1); 
+        liveUpdate(); 
+    }
+
+    function liveUpdate() {
+        const val = document.getElementById('editor').value;
+        const [q, a] = val.split('###');
+        document.getElementById('p-main').innerHTML = parseContent(q || "");
+        renderOptions(a || "", q || "");
+        // Save live ke database array
+        db[current] = val;
+        localStorage.setItem('db_exam_v4', JSON.stringify(db));
+    }
+
+    function parseContent(teks) {
+        let t = teks.replace(/\[IMG:\s*([^\]]+)\]/g, (m, u) => `<img src="${u.trim()}" class="q-img">`);
+        let lines = t.split('\n');
+        let html = ""; let tableArr = [];
+        lines.forEach(l => {
+            if (l.includes('|')) { tableArr.push(l); } 
+            else {
+                if (tableArr.length > 0) { html += drawTable(tableArr); tableArr = []; }
+                html += parseFormat(l) + "<br>";
+            }
+        });
+        if (tableArr.length > 0) html += drawTable(tableArr);
+        return html;
+    }
+
+    function renderOptions(aPart, qPart) {
+        const container = document.getElementById('p-options');
+        container.innerHTML = "";
+        if (!aPart.trim()) return;
+        const isMCMA = qPart.includes("[MCMA]");
+        const isTABEL = qPart.includes("[TABEL]");
+        const lines = aPart.trim().split('\n').filter(l => l.trim() !== "");
+        if (isTABEL) {
+            let h = `<table class="ans-table"><tr><th>Pernyataan</th><th>B</th><th>S</th></tr>`;
+            lines.forEach(l => {
+                let p = l.split('|').map(x => x.trim());
+                let s1 = (p[1] || "").includes('*');
+                let s2 = (p[2] || "").includes('*');
+                h += `<tr><td style="text-align:left">${parseFormat(p[0])}</td>
+                    <td><span class="cell-opt ${s1?'selected':''}">${(p[1]||"V").replace('*','')}</span></td>
+                    <td><span class="cell-opt ${s2?'selected':''}">${(p[2]||"X").replace('*','')}</span></td></tr>`;
+            });
+            container.innerHTML = h + `</table>`;
+        } else {
+            lines.forEach(l => {
+                let key = l.includes('*');
+                let txt = l.replace('*', '').trim();
+                container.innerHTML += `<div class="opt-row" style="${key?'border-color:var(--secondary); background:#f0fff4':''}">
+                    <div class="${isMCMA?'sq':'dot'}" style="${key?'background:var(--secondary); border:none':''}"></div>
+                    <span>${parseFormat(txt)}</span></div>`;
+            });
+        }
+    }
+
+    function drawTable(rows) {
+        let h = "<table class='simple-table'>";
+        rows.forEach(r => { h += "<tr>" + r.split('|').map(c => `<td>${parseFormat(c.trim())}</td>`).join("") + "</tr>"; });
+        return h + "</table>";
+    }
+
+    function parseFormat(s) {
+        return s.replace(/(\w+)\^(\w+)/g, "$1<sup>$2</sup>")
+                .replace(/(^|\s)(\d+)\/(\d+)(\s|$)/g, '$1<span class="frac"><span class="top">$2</span><span class="bottom">$3</span></span>$4');
+    }
+
+    // FUNGSI IMPOR VERSI 3 (PASTI MASUK)
+    function doImport() {
+        let input = prompt("Paste soal di sini:");
+        if (input) {
+            // 1. Bersihkan spasi kosong gila di awal/akhir teks
+            let raw = input.replace(/^\s+|\s+$/g, '');
+            
+            // 2. Pecah berdasarkan 2 enter atau lebih
+            let data = raw.split(/\n\s*\n/);
+            
+            // 3. Filter data kosong agar tidak jadi nomor hantu
+            let filteredData = data.filter(item => item.trim() !== "");
+            
+            if(filteredData.length > 0) {
+                db = filteredData;
+                current = 0; // Balik ke nomor 1
+                localStorage.setItem('db_exam_v4', JSON.stringify(db));
+                loadSoal();
+                renderNav();
+                alert("Berhasil mengimpor " + db.length + " soal. Silakan cek Nomor 1.");
+            }
+        }
+    }
+
+    function doDownload() {
+        save();
+        let b = new Blob([db.filter(s => s.trim() !== "").join("\n\n")], {type:"text/plain"});
+        let a = document.createElement("a");
+        a.href = URL.createObjectURL(b);
+        a.download = "DATABASE_SOAL.txt";
+        a.click();
+    }
+
+    function copyAllText() {
+        save();
+        let allText = db.filter(s => s.trim() !== "").join("\n\n");
+        if (!allText) return alert("Belum ada soal.");
+        navigator.clipboard.writeText(allText).then(() => alert("Teks soal disalin!"));
+    }
+
+    function doReset() { if(confirm("Hapus semua?")) { localStorage.removeItem('db_exam_v4'); location.reload(); } }
+
+    init();
+</script>
+</body>
+</html>
